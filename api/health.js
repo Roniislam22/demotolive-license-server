@@ -15,7 +15,7 @@ export default async function handler(req, res) {
         return res.status(500).json({
             success: false,
             firebase: false,
-            error: "Firebase connection failed"
+            error: error.message
         });
     }
 }
