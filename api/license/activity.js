@@ -1,13 +1,30 @@
 import { db } from "../../lib/firebase.js";
 
+const MAX_LICENSE_LENGTH = 128;
+const MAX_FINGERPRINT_LENGTH = 4096;
+
 function send(res, status, body) {
     return res.status(status).json(body);
 }
 
+function normalize(value, maxLength) {
+    if (typeof value !== "string") {
+        return "";
+    }
+
+    const result = value.trim();
+
+    if (result.length > maxLength) {
+        return "";
+    }
+
+    return result;
+}
+
 function isSafeLicenseKey(value) {
     return (
-        typeof value === "string" &&
         value.length > 0 &&
+        value.length <= MAX_LICENSE_LENGTH &&
         !/[.#$[\]/]/.test(value)
     );
 }
@@ -26,8 +43,18 @@ function isExpired(expireAt) {
 
 export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept");
+    res.setHeader(
+        "Access-Control-Allow-Methods",
+        "POST, OPTIONS"
+    );
+    res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Accept"
+    );
+    res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate"
+    );
 
     if (req.method === "OPTIONS") {
         return res.status(204).end();
@@ -41,11 +68,30 @@ export default async function handler(req, res) {
     }
 
     try {
-        const {
-            licenseKey,
-            fingerprint,
-            action
-        } = req.body || {};
+        const body = req.body;
+
+        if (
+            !body ||
+            typeof body !== "object" ||
+            Array.isArray(body)
+        ) {
+            return send(res, 400, {
+                success: false,
+                error: "INVALID_REQUEST_BODY"
+            });
+        }
+
+        const licenseKey = normalize(
+            body.licenseKey,
+            MAX_LICENSE_LENGTH
+        );
+
+        const fingerprint = normalize(
+            body.fingerprint,
+            MAX_FINGERPRINT_LENGTH
+        );
+
+        const action = normalize(body.action, 32);
 
         if (!isSafeLicenseKey(licenseKey)) {
             return send(res, 400, {
@@ -54,26 +100,27 @@ export default async function handler(req, res) {
             });
         }
 
-        if (!fingerprint || typeof fingerprint !== "string") {
+        if (!fingerprint) {
             return send(res, 400, {
                 success: false,
                 error: "FINGERPRINT_REQUIRED"
             });
         }
 
-        const allowedActions = [
-            "activate",
-            "heartbeat"
-        ];
-
-        if (!allowedActions.includes(action)) {
+        if (
+            action !== "activate" &&
+            action !== "heartbeat"
+        ) {
             return send(res, 400, {
                 success: false,
                 error: "INVALID_ACTION"
             });
         }
 
-        const licenseRef = db.ref(`extension_access/${licenseKey}`);
+        const licenseRef = db.ref(
+            `extension_access/${licenseKey}`
+        );
+
         const snapshot = await licenseRef.once("value");
 
         if (!snapshot.exists()) {
@@ -99,7 +146,9 @@ export default async function handler(req, res) {
             });
         }
 
-        // Existing device binding must match.
+        /*
+         * If already bound, fingerprint must match.
+         */
         if (
             license.fingerprint &&
             license.fingerprint !== fingerprint
@@ -117,8 +166,14 @@ export default async function handler(req, res) {
             last_seen: now
         };
 
-        // First activation binds the license.
-        if (!license.fingerprint && action === "activate") {
+        /*
+         * Only the activation request may establish
+         * the first device binding.
+         */
+        if (
+            action === "activate" &&
+            !license.fingerprint
+        ) {
             updates.fingerprint = fingerprint;
             updates.lastModified = now;
         }
@@ -128,14 +183,17 @@ export default async function handler(req, res) {
         return send(res, 200, {
             success: true,
             data: {
-                status: license.status,
+                status: "active",
                 lastUsed: now,
                 last_seen: now
             }
         });
 
     } catch (error) {
-        console.error("License activity error:", error);
+        console.error(
+            "License activity error:",
+            error
+        );
 
         return send(res, 500, {
             success: false,
