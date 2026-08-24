@@ -1,21 +1,37 @@
 import { db } from "../../lib/firebase.js";
 
+const MAX_LICENSE_LENGTH = 128;
+const MAX_FINGERPRINT_LENGTH = 4096;
+
 function send(res, status, body) {
     return res.status(status).json(body);
 }
 
-function normalizeLicenseKey(value) {
-    return String(value || "").trim();
+function normalize(value, maxLength) {
+    if (typeof value !== "string") {
+        return "";
+    }
+
+    const result = value.trim();
+
+    if (result.length > maxLength) {
+        return "";
+    }
+
+    return result;
 }
 
-function normalizeFingerprint(value) {
-    return String(value || "").trim();
+function isSafeLicenseKey(value) {
+    return (
+        value.length > 0 &&
+        value.length <= MAX_LICENSE_LENGTH &&
+        !/[.#$[\]/]/.test(value)
+    );
 }
 
 function isExpired(expireAt) {
     if (!expireAt) return false;
 
-    // Supports your existing YYYY-MM-DD format.
     const expiry = new Date(`${expireAt}T23:59:59.999Z`);
 
     if (Number.isNaN(expiry.getTime())) {
@@ -26,10 +42,19 @@ function isExpired(expireAt) {
 }
 
 export default async function handler(req, res) {
-    // Allow extension requests.
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader(
+        "Access-Control-Allow-Methods",
+        "POST, OPTIONS"
+    );
+    res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Accept"
+    );
+    res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate"
+    );
 
     if (req.method === "OPTIONS") {
         return res.status(204).end();
@@ -43,15 +68,29 @@ export default async function handler(req, res) {
     }
 
     try {
-        const body = req.body || {};
+        const body = req.body;
 
-        const licenseKey = normalizeLicenseKey(body.licenseKey);
-        const fingerprint = normalizeFingerprint(body.fingerprint);
-
-        if (!licenseKey) {
+        if (!body || typeof body !== "object" || Array.isArray(body)) {
             return send(res, 400, {
                 valid: false,
-                error: "LICENSE_KEY_REQUIRED"
+                error: "INVALID_REQUEST_BODY"
+            });
+        }
+
+        const licenseKey = normalize(
+            body.licenseKey,
+            MAX_LICENSE_LENGTH
+        );
+
+        const fingerprint = normalize(
+            body.fingerprint,
+            MAX_FINGERPRINT_LENGTH
+        );
+
+        if (!isSafeLicenseKey(licenseKey)) {
+            return send(res, 400, {
+                valid: false,
+                error: "INVALID_LICENSE_KEY"
             });
         }
 
@@ -62,22 +101,10 @@ export default async function handler(req, res) {
             });
         }
 
-        // Prevent path traversal / malformed Firebase paths.
-        if (
-            licenseKey.includes("/") ||
-            licenseKey.includes(".") ||
-            licenseKey.includes("#") ||
-            licenseKey.includes("$") ||
-            licenseKey.includes("[") ||
-            licenseKey.includes("]")
-        ) {
-            return send(res, 400, {
-                valid: false,
-                error: "INVALID_LICENSE_KEY"
-            });
-        }
+        const licenseRef = db.ref(
+            `extension_access/${licenseKey}`
+        );
 
-        const licenseRef = db.ref(`extension_access/${licenseKey}`);
         const snapshot = await licenseRef.once("value");
 
         if (!snapshot.exists()) {
@@ -89,15 +116,15 @@ export default async function handler(req, res) {
 
         const license = snapshot.val() || {};
 
-        // Status check
         if (license.status !== "active") {
             return send(res, 403, {
                 valid: false,
-                error: `LICENSE_${String(license.status || "INVALID").toUpperCase()}`
+                error: `LICENSE_${String(
+                    license.status || "INVALID"
+                ).toUpperCase()}`
             });
         }
 
-        // Expiry check
         if (isExpired(license.expire_at)) {
             return send(res, 403, {
                 valid: false,
@@ -106,7 +133,6 @@ export default async function handler(req, res) {
             });
         }
 
-        // Existing device binding
         if (
             license.fingerprint &&
             license.fingerprint !== fingerprint
@@ -119,21 +145,10 @@ export default async function handler(req, res) {
 
         const now = new Date().toISOString();
 
-        // First activation: bind license to this device.
-        if (!license.fingerprint) {
-            await licenseRef.update({
-                fingerprint,
-                lastUsed: now,
-                lastModified: now,
-                last_seen: now
-            });
-        } else {
-            // Existing valid device.
-            await licenseRef.update({
-                lastUsed: now,
-                last_seen: now
-            });
-        }
+        await licenseRef.update({
+            lastUsed: now,
+            last_seen: now
+        });
 
         return send(res, 200, {
             valid: true,
