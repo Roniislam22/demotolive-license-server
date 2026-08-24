@@ -5,17 +5,25 @@ function send(res, status, data) {
 }
 
 function getPathParts(req) {
-    const raw = req.query?.path;
+    const url = new URL(
+        req.url,
+        `https://${req.headers.host || "localhost"}`
+    );
 
-    if (Array.isArray(raw)) {
-        return raw.map(String);
+    const prefix = "/api/extension_access/";
+    const pathname = url.pathname;
+
+    if (!pathname.startsWith(prefix)) {
+        return [];
     }
 
-    if (typeof raw === "string" && raw.length > 0) {
-        return raw.split("/").filter(Boolean);
-    }
+    const remaining = pathname
+        .slice(prefix.length)
+        .split("/")
+        .filter(Boolean)
+        .map(decodeURIComponent);
 
-    return [];
+    return remaining;
 }
 
 function isSafeKey(value) {
@@ -43,6 +51,8 @@ export default async function handler(req, res) {
 
     try {
         const parts = getPathParts(req);
+
+        console.log("License path parts:", parts);
 
         if (parts.length < 1 || parts.length > 2) {
             return send(res, 400, {
@@ -81,7 +91,9 @@ export default async function handler(req, res) {
             const snapshot = await ref.once("value");
 
             if (!snapshot.exists()) {
-                return send(res, 404, null);
+                return send(res, 404, {
+                    error: "LICENSE_NOT_FOUND"
+                });
             }
 
             return send(res, 200, snapshot.val());
