@@ -1,4 +1,4 @@
-import { db } from "../../../lib/firebase.js";
+import { db } from "../../lib/firebase.js";
 
 function send(res, status, data) {
     return res.status(status).json(data);
@@ -44,15 +44,6 @@ export default async function handler(req, res) {
     try {
         const parts = getPathParts(req);
 
-        /*
-         * Expected:
-         *
-         * /api/extension_access/LICENSE
-         * /api/extension_access/LICENSE/fingerprint
-         * /api/extension_access/LICENSE/lastUsed
-         * /api/extension_access/LICENSE/lastModified
-         */
-
         if (parts.length < 1 || parts.length > 2) {
             return send(res, 400, {
                 error: "INVALID_LICENSE_PATH"
@@ -86,7 +77,6 @@ export default async function handler(req, res) {
 
         const ref = db.ref(refPath);
 
-        // Existing extension uses GET for license validation.
         if (req.method === "GET") {
             const snapshot = await ref.once("value");
 
@@ -97,7 +87,6 @@ export default async function handler(req, res) {
             return send(res, 200, snapshot.val());
         }
 
-        // Existing extension uses PUT for fingerprint/lastUsed/lastModified.
         if (req.method === "PUT") {
             if (!field) {
                 return send(res, 405, {
