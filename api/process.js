@@ -1,5 +1,5 @@
 /**
- * POST /api/trades/process
+ * POST /api/process
  * ──────────────────────────────────────────────
  * Pure business logic: process / compute trade analytics.
  *
@@ -51,7 +51,7 @@ export default function handler(req, res) {
       },
     });
   } catch (err) {
-    console.error("trades/process error:", err);
+    console.error("process error:", err);
     return res.status(500).json({ error: "Processing failed" });
   }
-};
+}
