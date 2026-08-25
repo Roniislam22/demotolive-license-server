@@ -1,5 +1,5 @@
 /**
- * POST /api/rank/calculate
+ * POST /api/calculate
  * ──────────────────────────────────────────────
  * Pure business logic: compute rank width % from balance.
  *
@@ -49,4 +49,4 @@ export default function handler(req, res) {
     console.error("rank error:", err);
     return res.status(500).json({ error: "Calculation failed" });
   }
-};
+}
