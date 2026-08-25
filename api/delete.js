@@ -1,12 +1,12 @@
 /**
- * POST /api/trades/delete
+ * POST /api/delete
  * ──────────────────────────────────────────────
  * Soft-delete trades (logical delete, stored in Firebase).
  *
  * Input:  { licenseKey, tradeIds: [...] }
  * Output: { success, deletedCount }
  */
-import { db } from "../../lib/firebase.js";
+import { db } from "../lib/firebase.js";
 
 function setCORS(res) { res.setHeader("Access-Control-Allow-Origin", "*"); res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS"); res.setHeader("Access-Control-Allow-Headers", "Content-Type"); }
 function handleOPTIONS(req, res) { if (req.method === "OPTIONS") { setCORS(res); return res.status(204).end(); } return false; }
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, deletedCount: tradeIds.length });
   } catch (err) {
-    console.error("trades/delete error:", err);
+    console.error("delete error:", err);
     return res.status(500).json({ success: false });
   }
-};
+}
