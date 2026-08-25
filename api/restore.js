@@ -1,12 +1,12 @@
 /**
- * POST /api/trades/restore
+ * POST /api/restore
  * ──────────────────────────────────────────────
  * Restore soft-deleted trades.
  *
  * Input:  { licenseKey, tradeIds: [...] }
  * Output: { success, restoredCount }
  */
-import { db } from "../../lib/firebase.js";
+import { db } from "../lib/firebase.js";
 
 function setCORS(res) { res.setHeader("Access-Control-Allow-Origin", "*"); res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS"); res.setHeader("Access-Control-Allow-Headers", "Content-Type"); }
 function handleOPTIONS(req, res) { if (req.method === "OPTIONS") { setCORS(res); return res.status(204).end(); } return false; }
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, restoredCount: tradeIds.length });
   } catch (err) {
-    console.error("trades/restore error:", err);
+    console.error("restore error:", err);
     return res.status(500).json({ success: false });
   }
-};
+}
