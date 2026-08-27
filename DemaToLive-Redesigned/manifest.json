@@ -1,0 +1,88 @@
+{
+  "manifest_version": 3,
+  "name": "DemaToLive",
+  "version": "8.9.25",
+  "description": "Professional browser workspace. Contact Developer: https://t.me/+13256997112",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://dematolive.vercel.app/*",
+    "https://qxbroker.com/*",
+    "https://market-qx.pro/*",
+    "https://market-qx.trade/*",
+    "https://market-qtx.trade/*",
+    "https://market-qx.info/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://qxbroker.com/*",
+        "*://*.qxbroker.com/*",
+        "*://market-qx.pro/*",
+        "*://*.market-qx.pro/*",
+        "*://market-qx.trade/*",
+        "*://*.market-qx.trade/*",
+        "*://market-qtx.trade/*",
+        "*://*.market-qtx.trade/*",
+        "*://market-qx.info/*",
+        "*://*.market-qx.info/*"
+      ],
+      "js": [
+        "security.js",
+        "eplhaw9x5pknt9.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://qxbroker.com/*",
+        "*://*.qxbroker.com/*",
+        "*://market-qx.pro/*",
+        "*://*.market-qx.pro/*",
+        "*://market-qx.trade/*",
+        "*://market-qtx.trade/*",
+        "*://*.market-qtx.trade/*",
+        "*://market-qx.info/*",
+        "*://*.market-qx.info/*"
+      ],
+      "js": [
+        "security.js",
+        "api-client.js",
+        "drc3ls3i8o3t00.js",
+        "owgp4pdq4e82vm.js",
+        "pd5dtewgm4d5mr.js",
+        "bvk6pu1cci9luj.js",
+        "xae94gfnhqvfin.js",
+        "oswczwym0f4qn6.js",
+        "bqk3j2slsuers8.js",
+        "q0986cadw2nuy0.js",
+        "vmorftef9nbzxh.js",
+        "e9f289f0ulhgji.js",
+        "hkst75x1y7bhcn.js",
+        "f15zcnntrcpl27.js",
+        "kf0yh7khj7vg6o.js",
+        "hx4tpi2q6g3zik.js",
+        "iosoy1b63he13p.js",
+        "vsixe42sg2jlkg.js",
+        "u3bv5dnkm95fyf.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    }
+  ],
+  "icons": {
+    "16": "icon16b.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "DemaToLive"
+  }
+}
