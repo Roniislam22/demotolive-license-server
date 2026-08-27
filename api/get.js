@@ -2,10 +2,10 @@
  * GET /api/get?licenseKey=xxx
  * ──────────────────────────────────────────────
  * Retrieve user settings from Firebase.
- *
- * Output: { success, settings: { startingBalance, rankBarWidth, customName, ... } }
+ * REQUIRES valid, active, non-expired license.
  */
 import { db } from "../lib/firebase.js";
+import { validateLicense } from "../lib/validate.js";
 
 function setCORS(res) { res.setHeader("Access-Control-Allow-Origin", "*"); res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS"); res.setHeader("Access-Control-Allow-Headers", "Content-Type"); }
 function handleOPTIONS(req, res) { if (req.method === "OPTIONS") { setCORS(res); return res.status(204).end(); } return false; }
@@ -18,9 +18,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const { licenseKey } = req.query;
-    if (!licenseKey)
-      return res.status(400).json({ error: "licenseKey required" });
+    /* ── LICENSE VALIDATION ── */
+    const auth = await validateLicense(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error, success: false });
+    const { licenseKey } = auth;
 
     const snap = await db
       .ref(`user_settings/${licenseKey}`)
