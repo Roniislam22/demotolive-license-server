@@ -14,8 +14,6 @@
  * Output: { iv, data, ts }  (encrypted blob)
  */
 
-import { db } from "../lib/firebase.js";
-
 function setCORS(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -464,14 +462,7 @@ const MODULES = {
   `,
 };
 
-/* -- Validate license key against Firebase -- */
-async function validateLicense(licenseKey) {
-  if (!licenseKey || typeof licenseKey !== "string") return false;
-  const snap = await db.ref(`extension_access/${licenseKey}`).once("value");
-  if (!snap.exists()) return false;
-  const license = snap.val();
-  return license.status === "active";
-}
+import { validateLicense as validateKey } from "../lib/validate.js";
 
 export default async function handler(req, res) {
   setCORS(res);
@@ -481,20 +472,20 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const { licenseKey, moduleId } = req.body;
+    const { moduleId } = req.body || {};
 
-    if (!licenseKey || !moduleId)
-      return res.status(400).json({ error: "licenseKey and moduleId required" });
+    if (!moduleId)
+      return res.status(400).json({ error: "moduleId required" });
 
-    const valid = await validateLicense(licenseKey);
-    if (!valid)
-      return res.status(403).json({ error: "INVALID_LICENSE" });
+    /* ── FULL LICENSE VALIDATION (status + expiry) ── */
+    const auth = await validateKey(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
 
     const code = MODULES[moduleId];
     if (!code)
       return res.status(404).json({ error: "MODULE_NOT_FOUND" });
 
-    const encrypted = await encrypt(code.trim(), licenseKey);
+    const encrypted = await encrypt(code.trim(), auth.licenseKey);
     return res.status(200).json(encrypted);
 
   } catch (err) {
